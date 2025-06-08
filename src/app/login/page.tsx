@@ -236,19 +236,22 @@ function LoginPageContent() {
         console.log("[Login] Login response data:", responseData);
       } catch (parseError) {
         console.error("[Login] Error parsing JSON response:", parseError);
-        throw {
-          status: response.status,
-          message: "Could not parse server response",
-          originalError: parseError
-        };
+        toast.dismiss(loadingToastId);
+        setIsSubmitting(false);
+        toast.error("Could not parse server response");
+        setFormError("Could not parse server response");
+        return;
       }
       
+      // Check if the response is not successful
       if (!response.ok) {
-        throw {
-          status: response.status,
-          message: responseData?.error || "Login failed",
-          data: responseData,
-        };
+        toast.dismiss(loadingToastId);
+        setIsSubmitting(false);
+        
+        const errorMessage = responseData?.error || "Login failed";
+        toast.error(errorMessage);
+        setFormError(errorMessage);
+        return;
       }
       
       toast.dismiss(loadingToastId);
@@ -264,12 +267,14 @@ function LoginPageContent() {
     } catch (error: any) {
       console.error("[Login] Login error:", error);
       toast.dismiss(loadingToastId);
+      setIsSubmitting(false);
       
       // Extract and display error message
       const errorMessage = error.message || "Failed to sign in. Please try again.";
       toast.error(errorMessage);
       setFormError(errorMessage);
     } finally {
+      // Safety check to ensure isSubmitting is always reset
       setIsSubmitting(false);
     }
   };

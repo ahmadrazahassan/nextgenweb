@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, CircleDot, Circle } from 'lucide-react';
+import { CheckCircle, CircleDot, Circle, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface StepConfig {
   id: string;
@@ -16,56 +17,193 @@ interface StepIndicatorProps {
 const StepIndicator: React.FC<StepIndicatorProps> = ({ steps, currentStepId }) => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStepId);
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.3
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 }
+  };
+
   return (
-    <nav aria-label="Progress" className="mb-8 md:mb-12">
-      <ol role="list" className="flex flex-col md:flex-row md:items-start md:space-x-4">
+    <motion.nav 
+      aria-label="Progress" 
+      className="mb-10 md:mb-16"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <ol role="list" className="flex items-center justify-between space-x-2 md:space-x-4 mx-auto max-w-4xl">
         {steps.map((step, stepIdx) => {
           const isCompleted = stepIdx < currentStepIndex;
           const isCurrent = stepIdx === currentStepIndex;
+          const isUpcoming = stepIdx > currentStepIndex;
 
           return (
-            <li key={step.id} className="relative md:flex-1 pb-10 md:pb-0">
-              <div className="flex items-center space-x-3 group">
-                <span
-                  className={`flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full transition-all duration-300
-                    ${isCompleted ? 'bg-indigo-600 shadow-lg shadow-indigo-500/30' 
-                        : isCurrent ? 'border-2 border-indigo-600 bg-white shadow-lg shadow-indigo-500/30' 
-                        : 'border-2 border-gray-300 bg-gray-100 group-hover:border-gray-400'}
+            <motion.li 
+              key={step.id} 
+              className="relative flex-1"
+              variants={itemVariants}
+            >
+              <div className="flex flex-col items-center">
+                {/* Step connection line */}
+                {stepIdx < steps.length - 1 && (
+                  <div className="absolute top-6 left-full w-full max-w-full transform -translate-x-1/2 flex items-center justify-center z-[-1]">
+                    <div className="h-0.5 w-full bg-gray-200 relative overflow-hidden">
+                      <motion.div 
+                        className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: isCompleted ? 1 : 0 }}
+                        transition={{ 
+                          duration: 0.8, 
+                          ease: "easeInOut",
+                          delay: isCompleted ? 0.3 : 0
+                        }}
+                        style={{ transformOrigin: 'left' }}
+                      />
+                    </div>
+                    {isCompleted && (
+                      <motion.div 
+                        className="absolute top-1/2 left-1/2 transform -translate-y-1/2 -translate-x-1/2 text-indigo-600"
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3, delay: 0.6 }}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step Icon/Number */}
+                <motion.div
+                  className={`
+                    flex h-12 w-12 items-center justify-center rounded-full 
+                    transition-all duration-300 ease-in-out relative
+                    ${isCompleted 
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-lg shadow-indigo-500/30' 
+                      : isCurrent 
+                        ? 'bg-white border-2 border-indigo-600 shadow-lg shadow-indigo-500/20' 
+                        : 'bg-white border-2 border-gray-200'}
                   `}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ 
+                    scale: isCurrent ? 1.1 : 1, 
+                    opacity: 1,
+                    boxShadow: isCurrent ? '0 10px 25px -5px rgba(79, 70, 229, 0.4)' : 
+                               isCompleted ? '0 8px 16px -4px rgba(79, 70, 229, 0.3)' : 
+                               '0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+                  }}
+                  transition={{ 
+                    duration: 0.4, 
+                    type: "spring", 
+                    stiffness: 200,
+                    delay: stepIdx * 0.1
+                  }}
+                  whileHover={{ 
+                    scale: isUpcoming ? 1.05 : isCurrent ? 1.15 : 1.05,
+                    boxShadow: isUpcoming ? "0px 8px 15px rgba(0, 0, 0, 0.1)" : ""
+                  }}
                 >
-                  {isCompleted ? (
-                    <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-white" />
-                  ) : isCurrent ? (
-                    <CircleDot className="h-5 w-5 md:h-6 md:w-6 text-indigo-600 animate-pulse" />
-                  ) : (
-                    <Circle className="h-5 w-5 md:h-6 md:w-6 text-gray-400 group-hover:text-gray-500 transition-colors" />
+                  <AnimatePresence mode="wait">
+                    {isCompleted && (
+                      <motion.div
+                        key="completed"
+                        initial={{ scale: 0, rotate: -10 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        exit={{ scale: 0, rotate: 10 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <CheckCircle className="h-6 w-6 text-white" />
+                      </motion.div>
+                    )}
+                    
+                    {isCurrent && (
+                      <motion.div
+                        key="current"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <CircleDot className="h-6 w-6 text-indigo-600" />
+                      </motion.div>
+                    )}
+                    
+                    {isUpcoming && (
+                      <motion.div
+                        key="upcoming"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <span className="text-sm font-medium text-gray-500">{stepIdx + 1}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  {/* Pulse effect for current step */}
+                  {isCurrent && (
+                    <motion.div 
+                      className="absolute inset-0 rounded-full border-2 border-indigo-500"
+                      initial={{ opacity: 0.7, scale: 1 }}
+                      animate={{ 
+                        opacity: 0,
+                        scale: 1.2,
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        repeatType: "loop",
+                        ease: "easeOut"
+                      }}
+                    />
                   )}
-                </span>
-                <span
-                  className={`text-sm md:text-base font-semibold transition-colors duration-300
-                    ${isCompleted ? 'text-indigo-600' 
-                        : isCurrent ? 'text-indigo-700' 
-                        : 'text-gray-500 group-hover:text-gray-700'}
-                  `}
+                </motion.div>
+
+                {/* Step Label */}
+                <motion.div
+                  className="mt-3 flex flex-col items-center"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 + (stepIdx * 0.1) }}
                 >
+                  <span className={`
+                    text-sm font-medium
+                    ${isCompleted 
+                      ? 'text-indigo-600' 
+                      : isCurrent 
+                        ? 'text-indigo-700 font-semibold' 
+                        : 'text-gray-500'}
+                  `}>
                   {step.name}
                 </span>
+                  
+                  {/* Active indicator dot */}
+                  {isCurrent && (
+                    <motion.div 
+                      className="h-1.5 w-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-full mt-1.5"
+                      layoutId="activeStepIndicator"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </motion.div>
               </div>
-
-              {/* Connector line - not for the last step */}
-              {stepIdx < steps.length - 1 && (
-                <div
-                  className={`absolute left-4 md:left-[2.5rem] lg:left-[2.75rem] top-10 md:top-5 h-full md:h-0.5 w-0.5 md:w-[calc(100%_+_1rem)] transition-colors duration-300 -z-10
-                  ${isCompleted ? 'bg-indigo-600' : 'bg-gray-300'}
-                  `}
-                  aria-hidden="true"
-                />
-              )}
-            </li>
+            </motion.li>
           );
         })}
       </ol>
-    </nav>
+    </motion.nav>
   );
 };
 
