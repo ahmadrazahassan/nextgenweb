@@ -56,8 +56,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       // Don't set error for network issues to prevent bad UX
       // setError(err.message || 'An error occurred while fetching user status.');
+    } finally {
+      setIsLoading(false); // Always set loading to false regardless of success/failure
     }
-    setIsLoading(false);
   };
 
   useEffect(() => {
@@ -73,48 +74,118 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: any) => {
     setIsLoading(true);
     setError(null);
+    
     try {
+      console.log("Login attempt with:", credentials.email);
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+      
+      // Try to parse the response
+      let data;
+      try {
+        data = await response.json();
+        console.log("Login response:", { status: response.status, data });
+      } catch (parseErr) {
+        console.error("Error parsing login response:", parseErr);
+        throw new Error('Invalid response from server');
       }
-      setUser(data.user || data); // Adjust based on your API response structure
-      // Optionally redirect or perform other actions
+      
+      // Handle non-OK responses
+      if (!response.ok) {
+        // Set error and clear loading state
+        setIsLoading(false);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          // The API returns a generic "Invalid email or password" for both cases
+          // For security reasons, the API doesn't specifically say "user not found"
+          // But we can infer it based on the error message and show a user-friendly message
+          
+          if (data.error) {
+            console.log("Login error message:", data.error);
+            const errorLower = data.error.toLowerCase();
+            
+            if (errorLower.includes('invalid email or password')) {
+              // For non-existent users, modify the error message to be more helpful
+              // We'll determine this is likely a "user not found" scenario
+              const userNotFoundMessage = 'Account not found. Please check your email or create a new account.';
+              setError(userNotFoundMessage);
+              throw new Error(userNotFoundMessage);
+            } else if (errorLower.includes('account locked') || errorLower.includes('locked')) {
+              setError(data.error);
+              throw new Error(data.error);
+            }
+          }
+          
+          // Generic unauthorized error
+          setError('Authentication failed. Please check your credentials and try again.');
+          throw new Error('Authentication failed. Please check your credentials and try again.');
+        }
+        
+        // For all other errors
+        setError(data.error || data.message || 'Login failed');
+        throw new Error(data.error || data.message || 'Login failed');
+      }
+      
+      // Set user on success
+      setUser(data.user || data);
+      
     } catch (err: any) {
+      // Make sure loading state is cleared and error is set
+      setIsLoading(false);
       setError(err.message || 'An error occurred during login.');
       setUser(null);
       throw err; // Re-throw to be caught by the form
+    } finally {
+      // Safety check to ensure loading is always false after login attempt
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const register = async (userData: any) => {
     setIsLoading(true);
     setError(null);
+    
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Registration failed');
+      
+      // Try to parse the response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseErr) {
+        console.error("Error parsing register response:", parseErr);
+        setIsLoading(false);
+        throw new Error('Invalid response from server');
       }
-      // setUser(data.user || data); // Optionally auto-login or fetch user after registration
-      // Typically, after registration, you might want to redirect to login or auto-fetch user
-      await fetchCurrentUser(); // Re-fetch user to confirm session, or handle as per your flow
+      
+      // Handle non-OK responses
+      if (!response.ok) {
+        setIsLoading(false);
+        setError(data.error || data.message || 'Registration failed');
+        throw new Error(data.error || data.message || 'Registration failed');
+      }
+      
+      // After successful registration, fetch the user
+      await fetchCurrentUser();
+      
     } catch (err: any) {
+      setIsLoading(false);
       setError(err.message || 'An error occurred during registration.');
       setUser(null);
       throw err; // Re-throw to be caught by the form
+    } finally {
+      // Safety check to ensure loading is always false
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const logout = async () => {
@@ -130,8 +201,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // router.push('/login'); // Optional: redirect after logout
     } catch (err: any) {
       setError(err.message || 'An error occurred during logout.');
+    } finally {
+      setIsLoading(false); // Always ensure loading state is reset
     }
-    setIsLoading(false);
   };
 
   const clearError = () => setError(null);
